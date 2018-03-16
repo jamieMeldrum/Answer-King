@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>Answer King Test Client</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css">
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js"></script>
+    <script src="http://ajax.aspnetcdn.com/ajax/knockout/knockout-2.2.1.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/bootbox.js/4.4.0/bootbox.min.js"></script>
+    <script src="../js/ajax.js"></script>
+
+    <link rel="stylesheet" type="text/css" href="../style/pageStyle.css">
+
+    <div id="navigation"></div>
+    <script>
+        $(document).ready(function(){
+            $('#navigation').load('navBar.html');
+        });
+    </script>
+</head>
+<body>
+
+<div id="itemsTable" class="container">
+    <h2>Items</h2>
+    <table class="table table-hover">
+        <thead>
+        <tr>
+            <th>Id</th>
+            <th>Name</th>
+            <th>Price</th>
+            <th></th>
+        </tr>
+        </thead>
+        <tbody>
+        <!-- ko foreach: items -->
+        <tr>
+            <td><p data-bind="text: id"></p></td>
+            <td><p data-bind="text: name"></p></td>
+            <td><p data-bind="text: price"></p></td>
+            <td>
+                <button data-bind="click: $parent.beginAmendPrice" class="btn">Amend Price</button>
+            </td>
+        </tr>
+        <!-- /ko -->
+        </tbody>
+    </table>
+    <button data-bind="click: beginAdd" class="btn">Add Item</button>
+</div>
+
+<div id="addItem" class="modal fade" tabindex="=1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Add Item</h3>
+            </div>
+            <div class="modal-body">
+                <form class="form-horizontal">
+                    <div class="control-group">
+                        <label class="control-label" for="inputName">Item</label>
+                        <div class="controls">
+                            <input data-bind="value: name" type="text" id="inputName" placeholder="" style="width: 300px;">
+                        </div>
+                    </div>
+                    <div class="control-group">
+                        <label class="control-label" for="inputPrice">Price</label>
+                        <div class="controls">
+                            <input data-bind="value: price" type="number" step=".01" id="inputPrice" placeholder="0.00" style="width: 300px;">
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button data-bind="click: addItem" class="btn btn-primary">Ok</button>
+                <button class="btn" data-dismiss="modal">Cancel</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div id="amendItemPrice" class="modal fade" tabindex="=1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Amend Price</h3>
+            </div>
+            <div class="modal-body">
+                <form class="form-horizontal">
+                    <div class="control-group">
+                        <label class="control-label" for="inputName">Item</label>
+                        <div class="controls">
+                            <input data-bind="value: name" type="text" id="inputName" style="width: 300px;" readonly="true">
+                        </div>
+                    </div>
+                    <div class="control-group">
+                        <label class="control-label" for="inputPrice">Price</label>
+                        <div class="controls">
+                            <input data-bind="value: price" type="number" step=".01" id="inputPrice" style="width: 300px;">
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button data-bind="click: amendItemPrice" class="btn btn-primary">Ok</button>
+                <button class="btn" data-dismiss="modal">Cancel</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+</body>
+<script>
+$(document).ready(function() {
+
+    var itemsURI = 'http://localhost:8888/item/';
+
+    var itemsViewModel = new ItemsViewModel();
+    var addItemViewModel = new AddItemViewModel();
+    var amendItemPriceViewModel = new AmendItemPriceViewModel();
+
+    ko.applyBindings(itemsViewModel, $('#itemsTable')[0]);
+    ko.applyBindings(addItemViewModel, $('#addItem')[0]);
+    ko.applyBindings(amendItemPriceViewModel, $('#amendItemPrice')[0]);
+
+    function ItemsViewModel() {
+        var self = this;
+
+        self.items = ko.observableArray();
+
+        self.getAllItemsAndAddToTable = function() {
+            ajax(itemsURI, 'GET').done(function(items) {
+                for (var i = 0; i < items.length; i++) {
+                    self.addItem(items[i]);
+                }
+            });
+        }
+        self.getAllItemsAndAddToTable();
+
+        self.beginAdd = function() {
+            $('#addItem').modal('show');
+        }
+
+        self.addItem = function(itemToPost) {
+            ajax(itemsURI, 'POST', itemToPost).done(function(item) {
+                self.items.push({
+                    id: item.id,
+                    name: item.name,
+                    price: item.price.toFixed(2)
+                });
+            });
+        }
+
+         self.beginAmendPrice = function(item) {
+            amendItemPriceViewModel.setItem(item);
+            $('#amendItemPrice').modal('show');
+        }
+
+        self.amendItemPrice = function(oldItem, price) {
+            var id = oldItem.id;
+
+            ajax(itemsURI + id + '/amendPrice', 'PUT', price).done(function(amendedItem) {
+                self.items.replace(oldItem, {
+                    id: amendedItem.id,
+                    name: amendedItem.name,
+                    price: amendedItem.price.toFixed(2)
+                });
+            });
+        }
+    }
+
+    function AddItemViewModel() {
+        var self = this;
+        self.name = ko.observable();
+        self.price = ko.observable();
+
+        self.addItem = function() {
+            $('#addItem').modal('hide');
+            itemsViewModel.addItem({
+                name: self.name(),
+                price: self.price()
+            });
+            self.name("");
+            self.price(0.00);
+        }
+    }
+
+    function AmendItemPriceViewModel() {
+        var self = this;
+        self.name = ko.observable();
+        self.price = ko.observable();
+
+        self.setItem = function(item) {
+            self.item = item;
+            self.name(item.name);
+            self.price(item.price);
+        }
+
+        self.amendItemPrice = function() {
+            $('#amendItemPrice').modal('hide');
+            itemsViewModel.amendItemPrice(self.item, self.price());
+        }
+    }
+});
+</script>
+</html>

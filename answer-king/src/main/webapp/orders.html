@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>Answer King Test Client</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css">
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js"></script>
+    <script src="http://ajax.aspnetcdn.com/ajax/knockout/knockout-2.2.1.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/bootbox.js/4.4.0/bootbox.min.js"></script>
+    <script src="../js/ajax.js"></script>
+
+    <link rel="stylesheet" type="text/css" href="../style/pageStyle.css">
+
+    <div id="navigation"></div>
+    <script>
+        $(document).ready(function(){
+            $('#navigation').load('navBar.html');
+        });
+    </script>
+</head>
+<body>
+<div id="ordersTable" class="container">
+    <h2>Orders</h2>
+    <table class="table table-hover">
+        <thead>
+        <tr>
+            <th>Id</th>
+            <th>Total Price</th>
+            <th>Paid</th>
+            <th>Change Due</th>
+            <th></th>
+            <th></th>
+        </tr>
+        </thead>
+        <tbody>
+        <!-- ko foreach: orders -->
+        <tr>
+            <td><p data-bind="text: id"></p></td>
+            <td><p data-bind="text: totalPrice"></p></td>
+            <td>
+                <span data-bind="visible: paid" class="glyphicon glyphicon-ok"></span>
+                <span data-bind="visible: !paid" class="glyphicon glyphicon-remove"></span>
+            </td>
+
+            <td data-bind="if: receipt">
+                <p data-bind="text: receipt().change"></p>
+            </td>
+
+            <td><button data-bind="click: $parent.amendOrder" class="btn">Order Details</button></td>
+            <td>
+                <span data-bind="visible: paid"></span>
+                <p data-bind="visible: !paid">
+                    <button data-bind="click: $parent.beginPayForOrder" class="btn">Pay</button>
+                </p>
+            </td>
+        </tr>
+        <!-- /ko -->
+        </tbody>
+    </table>
+    <button data-bind="click: addOrder" class="btn">Add Order</button>
+</div>
+
+<div id="amendOrder" class="modal fade" tabindex="=1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3><b>Order Details</b></h3>
+                <h5>
+                    <!-- ko foreach: order -->
+                    <b>
+                        Order ID: <span data-bind="text: id"></span>,
+                    </b>
+                    <!-- /ko -->
+                </h5>
+            </div>
+            <div class="modal-body">
+                <h4><b>Add Item</b></h4>
+                <select id = 'itemSelector' data-bind="options: items, optionsText: 'name', value: item" style="width: 300px;"></select>
+                <form class="form-horizontal">
+                    <div class="control-group">
+                        <label class="control-label" for="inputQuantity">Quantity</label>
+                        <div class="controls">
+                            <input data-bind="value: quantity" type="number" step="1" id="inputQuantity" style="width: 100px;">
+                        </div>
+                    </div>
+                    <br>
+                    <button data-bind="click: addItem" class="btn btn-primary">Add Item</button>
+                </form>
+                <br>
+                <h4><b>Line Items</b></h4>
+                <table class="table table-hover">
+                    <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>Quantity</th>
+                        <th>Price per Item</th>
+                        <th>Total Price</th>
+                        <th></th>
+                        <th></th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    <!-- ko foreach: lineItemRows -->
+                    <tr>
+                        <td><p data-bind="text: lineItem().item.name"></p></td>
+                        <td><p data-bind="text: lineItem().quantity"></p></td>
+                        <td><p data-bind="text: lineItem().price"></p></td>
+                        <td><p data-bind="text: lineItem().pricePerLineItem"></p></td>
+                        <td>
+                            <input data-bind="value: newQuantity" type="number" id="inputName" placeholder="0.00" style="width: 50px;"></td>
+                        </td>
+                        <td>
+                            <button data-bind="click: $parent.setQuantity" class="btn">Set Quantity</button>
+                        </td>
+                    </tr>
+                    <!-- /ko -->
+                    </tbody>
+                </table>
+            </div>
+            <div class="modal-footer">
+                <button class="btn" data-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div id="payForOrder" class="modal fade" tabindex="=1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Pay</h3>
+            </div>
+            <div class="modal-body">
+                <form class="form-horizontal">
+                    <div class="control-group">
+                        <label class="control-label" for="inputPayment">Payment</label>
+                        <div class="controls">
+                            <input data-bind="value: payment" type="number" step="0.01" id="inputPayment" style="width: 100px;">
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button data-bind="click: payForOrder" class="btn btn-primary">Ok</button>
+                <button class="btn" data-dismiss="modal">Cancel</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+</body>
+<script>
+$(document).ready(function() {
+
+    var itemsURI = 'http://localhost:8888/item/';
+    var ordersURI = 'http://localhost:8888/order/';
+
+    var ordersViewModel = new OrdersViewModel();
+    var orderViewModel = new OrderViewModel();
+    var payForOrderViewModel = new PayForOrderViewModel();
+
+    ko.applyBindings(ordersViewModel, $('#ordersTable')[0]);
+    ko.applyBindings(orderViewModel, $('#amendOrder')[0]);
+    ko.applyBindings(payForOrderViewModel, $('#payForOrder')[0]);
+
+    function OrdersViewModel() {
+        var self = this;
+
+        self.orders = ko.observableArray();
+
+        self.addOrderToTable = function(order) {
+            self.orders.push(self.getOrderRow(order));
+        }
+
+        self.getOrderRow = function(order) {
+            var receipt = order.receipt;
+            if (receipt != null) {
+                var change = receipt.change.toFixed(2);
+                receipt.change = change;
+            }
+
+            var orderRow = {
+				id: order.id,
+				totalPrice: parseFloat(order.totalPrice).toFixed(2),
+				paid: order.paid,
+                receipt: ko.observable(receipt),
+                lineItems: order.lineItems
+			};
+			return orderRow;
+        }
+
+        self.getAllOrdersAndAddToTable = function() {
+            ajax(ordersURI, 'GET').done(function(orders) {
+                self.orders([]);
+                for (var i = 0; i < orders.length; i++) {
+                    self.addOrderToTable(orders[i]);
+                }
+            });
+        }
+        self.getAllOrdersAndAddToTable();
+
+        self.addOrder = function() {
+            bootbox.confirm({
+                message: "Are you sure you want to create a new Order?",
+                buttons:
+                {
+                    cancel:
+                    {
+                        label: '<i class="fa fa-times"></i> No'
+                    },
+                    confirm:
+                    {
+                        label: '<i class="fa fa-check"></i> Yes'
+                    }
+                },
+                callback: function (confirmed)
+                {
+                    if (confirmed)
+                    {
+                        ajax(ordersURI, 'POST').done(function(order)
+                        {
+                            self.addOrderToTable(order);
+                            self.amendOrder(order);
+                        });
+                    }
+                }
+            });
+        }
+
+        self.amendOrder = function(order) {
+            orderViewModel.init(order);
+            $('#amendOrder').modal('show');
+        }
+
+        self.addItem = function(order, itemId, quantity) {
+            var orderId = order.id;
+
+			var uri = ordersURI + orderId + '/addItem/' + itemId + '/' + quantity;
+			ajax(uri, 'PUT', null, null).done(function() {
+                self.getAllOrdersAndAddToTable();
+			});
+        }
+
+        self.beginPayForOrder = function(order) {
+            payForOrderViewModel.init(order);
+            $('#payForOrder').modal('show');
+        }
+
+        self.payForOrder = function(order, payment, index) {
+            var orderId = order.id;
+
+			var uri = ordersURI + orderId + '/pay/';
+			ajax(uri, 'PUT', payment).done(function(receipt) {
+
+			    var orderRow = self.orders()[index];
+			    var orderRowNow = jQuery.extend(true, {}, orderRow)
+
+				orderRowNow.paid = true;
+				receipt.change = receipt.change.toFixed(2);
+				orderRowNow.receipt(receipt);
+
+				self.orders.replace(orderRow, orderRowNow);
+			});
+        }
+    }
+
+    function OrderViewModel() {
+        var self = this;
+
+        self.order = ko.observable();
+
+        self.item = ko.observable();
+        self.quantity = ko.observable();
+
+        self.items = ko.observableArray();
+        self.lineItemRows = ko.observableArray();
+
+		self.init = function(order) {
+		    self.order(null);
+            self.item(null);
+            self.quantity(0);
+            self.items([]);
+            self.items.removeAll();
+            self.lineItemRows([]);
+            self.lineItemRows.removeAll();
+
+		    ajax(itemsURI, 'GET').done(function(itemsRet) {
+                self.quantity(0);
+			    self.items(itemsRet);
+            });
+
+		    self.order(order);
+		    var lineItems = order.lineItems;
+            if (lineItems == null) {
+                return;
+            }
+
+		    for (var i = 0; i < lineItems.length; i++) {
+		        var lineItem = lineItems[i];
+		        self.lineItemRows.push(self.getNewLineItemRow(lineItem.item, lineItem.quantity));
+		    }
+		}
+
+		self.getNewLineItemRow = function(item, newQuantity) {
+            var lineItemRowNew = {
+                lineItem: ko.observable({
+                    item: item,
+                    order: self.order(),
+                    price: item.price.toFixed(2),
+                    quantity: newQuantity,
+                    pricePerLineItem: (item.price * newQuantity).toFixed(2),
+                }),
+                newQuantity: ko.observable(newQuantity)
+            };
+            return lineItemRowNew;
+		}
+
+		self.addItem = function() {
+            var item = self.item();
+            if (item == null) {
+                bootbox.alert("You must select an Item to add to the Order");
+                return;
+            }
+
+            var itemId = item.id;
+            var quantity = self.quantity();
+
+            var uri = ordersURI + self.order().id + '/addItem/' + itemId + '/' + quantity;
+			ajax(uri, 'PUT', null, null).done(function() {
+                ordersViewModel.getAllOrdersAndAddToTable();
+
+                var updatedRow = false;
+                var lineItemRows = self.lineItemRows();
+                for (var i = 0; i < lineItemRows.length; i++) {
+                    var lineItemRow = lineItemRows[i];
+                    var itemIdOnRow = lineItemRow.lineItem().item.id;
+                    if (itemId == itemIdOnRow) {
+
+                        var newQuantity = parseInt(lineItemRow.lineItem().quantity) + parseInt(quantity);
+                        var lineItemRowNew = self.getNewLineItemRow(item, newQuantity);
+                        self.lineItemRows.replace(lineItemRow, lineItemRowNew);
+                        updatedRow = true;
+                        break;
+                    };
+                }
+
+                if (!updatedRow) {
+
+                    var newQuantity = quantity;
+                    var lineItemRowNew = self.getNewLineItemRow(item, newQuantity);
+                    self.lineItemRows.push(lineItemRowNew);
+                }
+            });
+		}
+
+		self.setQuantity = function(lineItemRow) {
+		    var quantity = lineItemRow.newQuantity()
+		    var itemId = lineItemRow.lineItem().item.id;
+		    var orderId = self.order().id;
+
+		    var uri = ordersURI + orderId + '/setItemQuantity/' + itemId + '/' + quantity;
+			ajax(uri, 'PUT', null, null).done(function() {
+                var lineItemRowNew = self.getNewLineItemRow(lineItemRow.lineItem().item, quantity)
+				self.lineItemRows.replace(lineItemRow, lineItemRowNew);
+		        ordersViewModel.getAllOrdersAndAddToTable();
+			});
+		}
+    }
+
+    function PayForOrderViewModel() {
+        var self = this;
+        self.payment = ko.observable();
+
+        self.init = function(order) {
+            self.index = ordersViewModel.orders.indexOf(order);
+			self.order = order;
+			self.payment(0);
+		}
+
+        self.payForOrder = function() {
+            $('#payForOrder').modal('hide');
+            ordersViewModel.payForOrder(self.order, self.payment(), self.index);
+        }
+    }
+});
+</script>
+</html>
